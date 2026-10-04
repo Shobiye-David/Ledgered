@@ -1,5 +1,6 @@
 require("dotenv").config();
 const express = require("express");
+const path = require("path");
 const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
@@ -38,6 +39,15 @@ app.use("/api/institutions", institutionRoutes);
 app.use("/api/certificates", certificateRoutes);
 app.use("/api/verify", verifyRoutes);
 app.use("/api/audit", auditRoutes);
+
+const frontendDirectory = path.join(__dirname, "public");
+app.use(express.static(frontendDirectory));
+app.get("*", (req, res, next) => {
+  if (req.path === "/api" || req.path.startsWith("/api/")) return next();
+  res.sendFile(path.join(frontendDirectory, "index.html"), (err) => {
+    if (err) next(err);
+  });
+});
 
 app.use(notFound);
 app.use(errorHandler);
