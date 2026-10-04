@@ -1,76 +1,80 @@
-# Ledgered — Blockchain-Based Academic Certificate Verification Platform
+# Ledgered
 
-Ledgered is an institution-agnostic platform for issuing, holding, and verifying
-academic certificates. Certificate hashes and transaction references are
-anchored on the Polygon Amoy testnet; full certificate metadata lives off-chain
-in MongoDB. Any accredited institution can be onboarded — nothing in the
-product is designed around, or branded for, a single school or university.
+Ledgered is a blockchain-based academic certificate platform. Institutions can issue and revoke certificates, students can view their certificates, and anyone can check whether a certificate is valid.
 
-## Architecture
+The app stores certificate records in MongoDB and anchors certificate hashes on the Polygon Amoy testnet. Verification compares the stored record with the hash recorded on-chain.
 
-```
-contracts/   Solidity smart contract (CertificateRegistry) + Hardhat deployment
-backend/     Node.js/Express API, MongoDB models, ethers.js blockchain service
-frontend/    React + Tailwind SPA: landing/verify (public), institution
-             dashboard, student portal, platform-admin console
-```
+## Features
 
-### Why this split
+- Public certificate verification by certificate ID
+- Institution staff dashboard for issuing and revoking certificates
+- Student portal for viewing certificates
+- Platform admin tools for managing institutions
+- Optional Google sign-in and Cloudinary document storage
 
-- **On-chain**: only a `certificateId`, a `certificateHash` (keccak256 of the
-  canonical record), issuer, timestamps, and status (`Active` / `Revoked`).
-  No personally identifiable data ever touches the chain.
-- **Off-chain (MongoDB)**: the full human-readable record — student name,
-  program, award date, classification, document links — keyed by the same
-  `certificateId`.
-- **Verification** independently recomputes the hash and reads the contract
-  directly (`GET /api/verify/:certificateId`), so a verifier is never asked to
-  trust Ledgered's database alone — only the chain.
+## Project structure
 
-### Roles
+- `frontend/` — React and Vite web app
+- `backend/` — Node.js and Express API
+- `contracts/` — Solidity smart contract and Hardhat deployment scripts
 
-| Role | Access |
-|---|---|
-| `platform_admin` | Onboards institutions, suspends/reactivates them |
-| `institution_staff` | Issues and revokes certificates for their own institution |
-| `student` | Views certificates issued to them |
-| Public (no account) | Looks up any certificate by ID on `/verify` |
+## Technology
 
-## Getting started
+- React, Vite, and Tailwind CSS
+- Node.js and Express
+- MongoDB and Mongoose
+- Solidity, Hardhat, and ethers.js
+- Polygon Amoy testnet
 
-### 1. Smart contract
+## Requirements
 
-```bash
-cd contracts
-npm install
-cp ../backend/.env.example .env   # fill in AMOY_RPC_URL, DEPLOYER_PRIVATE_KEY
-npm run compile
-npm run deploy:amoy
-```
+- Node.js and npm
+- MongoDB, either a local installation or a MongoDB Atlas database
+- A Polygon Amoy RPC endpoint and a deployed `CertificateRegistry` contract for blockchain features
 
-Copy the deployed address into `backend/.env` as `CONTRACT_ADDRESS`. You'll
-need Amoy testnet MATIC in the deployer wallet (available from public Amoy
-faucets).
+Google OAuth and Cloudinary are optional. Configure them only if you want to use Google sign-in or certificate document uploads.
 
-### 2. Backend
+## Run locally
+
+Clone or download this repository, then configure the environment files. Do not commit real `.env` files or secrets.
+
+### 1. Configure the backend
+
+Copy `backend/.env.example` to `backend/.env` and fill in the values for your environment.
+
+At minimum, configure:
+
+- `MONGO_URI` — MongoDB connection string
+- `JWT_SECRET` — a long, randomly generated secret
+- `ADMIN_ACCESS_PATH` — a private path for platform admin access
+- `ADMIN_SEED_PASSWORD` — a password to use if creating the demo admin account
+- `WALLET_ENCRYPTION_KEY` — a randomly generated secret of at least 32 characters
+- `AMOY_RPC_URL` — Polygon Amoy RPC endpoint
+- `PLATFORM_ADMIN_PRIVATE_KEY` — private key for the platform wallet
+- `CONTRACT_ADDRESS` — address of the deployed `CertificateRegistry` contract
+- `CLIENT_ORIGIN` — frontend origin, usually `http://localhost:5173` for local development
+
+Set `GOOGLE_CLIENT_ID` and the `CLOUDINARY_*` values only if using those services.
+
+Then install dependencies and start the API:
 
 ```bash
 cd backend
 npm install
-cp .env.example .env
-# fill in MONGO_URI, JWT_SECRET, AMOY_RPC_URL, PLATFORM_ADMIN_PRIVATE_KEY,
-# CONTRACT_ADDRESS, and a WALLET_ENCRYPTION_KEY (32+ random characters)
 npm run dev
 ```
 
-Optionally seed a demo dataset (a platform admin, one sample institution
-"Riverside University", one staff account, one student account):
+The backend runs locally on port `4000` by default.
 
-```bash
-node seed.js
-```
+### 2. Configure the frontend
 
-### 3. Frontend
+Copy `frontend/.env.example` to `frontend/.env`. Set:
+
+- `VITE_API_URL` — backend API URL, usually `http://localhost:4000/api`
+- `VITE_ADMIN_ACCESS_PATH` — must match the backend's `ADMIN_ACCESS_PATH`
+- `VITE_GOOGLE_CLIENT_ID` — the same Google OAuth client ID configured for the backend, if using Google sign-in
+
+Install dependencies and start the frontend:
 
 ```bash
 cd frontend
@@ -78,36 +82,50 @@ npm install
 npm run dev
 ```
 
-Visit `http://localhost:5173`. The public verification page works without
-signing in; institution/student/admin dashboards require the accounts above.
+Open the local URL printed by Vite, usually `http://localhost:5173`.
 
-## Design system
+### 3. Optional: deploy the smart contract
 
-The frontend intentionally avoids default "AI app" visual tropes (neon
-gradients on dark backgrounds, nested bordered cards, Inter/system-ui type).
-Tokens live in `frontend/tailwind.config.js`:
+If you need a new contract deployment, configure `contracts/.env` with an Amoy RPC URL and a dedicated test wallet private key. Then run:
 
-- **Color** — a 60/30/10 balance: warm paper base, deep pine for structural
-  surfaces, burnt amber reserved for primary actions and the verification
-  "seal" moment. Status colors are desaturated rather than traffic-light
-  bright.
-- **Type** — Fraunces (display) + Source Sans 3 (body/UI), loaded via Google
-  Fonts in `index.html`.
-- **Layout** — regions are separated by background tint shifts, not nested
-  card borders. The public verify page's result state is the one deliberately
-  bold visual moment in the product.
+```bash
+cd contracts
+npm install
+npm run compile
+npm run deploy:amoy
+```
 
-## Extending to a new institution
+Use the resulting contract address as the backend's `CONTRACT_ADDRESS`. The deployment wallet needs test MATIC on Polygon Amoy. Never use a wallet containing valuable funds or publish its private key.
 
-No code changes are required. A platform admin submits the onboarding form
-(`/admin/onboard`), which:
+### 4. Optional: seed demo data
 
-1. Generates a platform-custodied wallet for the institution (or an
-   institution can supply its own wallet address instead)
-2. Registers that wallet on-chain via `CertificateRegistry.registerInstitution`
-3. Creates the institution's first staff account
+To create demo accounts and records, configure the backend settings required by the seed script, including `ADMIN_SEED_PASSWORD`, then run:
 
-The new institution then issues certificates from its own dashboard,
-independent of any other institution on the platform.
+```bash
+cd backend
+node seed.js
+```
 
-Password for all seeded account is ChangeMe123!
+## Deploy
+
+The frontend and backend can be deployed as separate services from this repository. For example, on Render:
+
+- Create a **Web Service** with root directory `backend`, build command `npm install`, and start command `npm start`.
+- Create a **Static Site** with root directory `frontend`, build command `npm install && npm run build`, and publish directory `dist`.
+- Use MongoDB Atlas or another hosted MongoDB database.
+- Set environment variables in the hosting provider's dashboard. Do not put production secrets in the repository.
+- Set backend `CLIENT_ORIGIN` to the deployed frontend URL.
+- Set frontend `VITE_API_URL` to the deployed backend URL followed by `/api`.
+
+For MongoDB Atlas, create a database user and configure network access so the deployed backend can connect.
+
+## Security
+
+- Never commit `.env` files, private keys, passwords, API secrets, or encryption keys.
+- Use dedicated test wallets for testnet deployments.
+- Generate unique secrets for each deployment.
+- If a secret is accidentally published, consider it compromised and replace it.
+
+## License
+
+No license has been specified for this repository. Contact the repository owner before reusing or redistributing the code.
