@@ -1,0 +1,11 @@
+[
+  "function registerInstitution(address institutionWallet, string name) external",
+  "function setInstitutionActive(address institutionWallet, bool isActive) external",
+  "function issueCertificate(bytes32 certificateId, bytes32 certificateHash, string metadataURI) external",
+  "function revokeCertificate(bytes32 certificateId, string reason) external",
+  "function verifyCertificate(bytes32 certificateId, bytes32 hashToCheck) external view returns (bool exists, bool hashMatches, uint8 status, address issuer, string issuerName, uint64 issuedAt, uint64 revokedAt, string metadataURI)",
+  "function getCertificate(bytes32 certificateId) external view returns (tuple(bytes32 certificateHash, address issuer, uint64 issuedAt, uint64 revokedAt, uint8 status, string metadataURI))",
+  "function institutions(address) external view returns (bool isRegistered, bool isActive, string name, uint64 registeredAt)",
+  "event CertificateIssued(bytes32 indexed certificateId, address indexed issuer, bytes32 certificateHash, string metadataURI)",
+  "event CertificateRevoked(bytes32 indexed certificateId, address indexed issuer, string reason)"
+]
